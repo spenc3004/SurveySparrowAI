@@ -52,7 +52,55 @@ function promptManager(id) {
 }
 // #endregion
 
-
+function numCoupons(data) {
+  let counter = 0;
+  if (data.coupons) {
+    for (const key in data.coupons) {
+      if (key.startsWith("coupon")) {
+        if (data.coupons[key] !== "null") {
+          counter += 1
+        }
+      }
+    }
+  }
+  if (data.homeownerOffers) {
+    for (const key in data.homeownerOffers) {
+      if (key.startsWith("coupon")) {
+        if (data.homeownerOffers[key] !== "null") {
+          counter += 1
+        }
+      }
+    }
+  }
+  if (data.radiusOffers) {
+    for (const key in data.radiusOffers) {
+      if (key.startsWith("coupon")) {
+        if (data.radiusOffers[key] !== "null") {
+          counter += 1
+        }
+      }
+    }
+  }
+  if (data.carrierOffers) {
+    for (const key in data.carrierOffers) {
+      if (key.startsWith("coupon")) {
+        if (data.carrierOffers[key] !== "null") {
+          counter += 1
+        }
+      }
+    }
+  }
+  if (data.retentionOffers) {
+    for (const key in data.retentionOffers) {
+      if (key.startsWith("coupon")) {
+        if (data.retentionOffers[key] !== "null") {
+          counter += 1
+        }
+      }
+    }
+  }
+  return String(counter);
+}
 
 
 app.post("/ss", async (req, res) => {
@@ -61,10 +109,11 @@ app.post("/ss", async (req, res) => {
     console.log("Received JSON from Survey Sparrow");
     const data = req.body
     const company = data.companyName || data.practiceName
+    data.totalCoupons = numCoupons(data)
     const { type, promptId } = promptManager(data.survey_id)
     console.log(promptId)
     const safeType = type.replace(/\s+/g, "_");
-    const briefContent = await generateBrief(data, promptId, type)
+    const briefContent = await generateBrief(data, promptId, type);
 
     const mdFilePath = path.join(OUTPUT_DIR, `${safeType}_Brief.md`);
     const docxFilePath = path.join(OUTPUT_DIR, `${safeType}_Brief.docx`);
@@ -93,13 +142,13 @@ async function generateBrief(data, promptId, type) {
   const response = await client.responses.create({
     model: 'gpt-4.1-mini',
     prompt: {
-      id: promptId,
+      id: promptId
     },
     input: [
       {
         role: 'user',
-        content: `Use this data to create a ${type} client brief adhere to exact section titles and formatting in the instructions.
-          ${JSON.stringify(data, null, 2)}`
+        content: `Use this data to create a ${type} client brief adhere to exact section titles and 
+        formatting in the instructions. ${JSON.stringify(data, null, 2)}`
       }
     ]
   });
