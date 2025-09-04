@@ -1,3 +1,5 @@
+// #region Initialization
+
 const express = require('express')
 const fs = require('fs')
 const path = require('path')
@@ -19,9 +21,46 @@ const client = new openai.OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// #endregion
+
 app.get("/", (req, res) => {
   res.send('Hello from server.js')
 })
+
+app.post("/ss", async (req, res) => {
+  // #region Receive JSON from Survey Sparrow
+  try {
+    console.log("Received JSON from Survey Sparrow");
+    const data = req.body
+    const company = data.companyName || data.practiceName
+    data.totalCoupons = numCoupons(data)
+    const { type, promptId } = promptManager(data.survey_id)
+    console.log(promptId)
+    const safeType = type.replace(/\s+/g, "_");
+    const briefContent = await generateBrief(data, promptId, type);
+
+    const mdFilePath = path.join(OUTPUT_DIR, `${safeType}_Brief.md`);
+    const docxFilePath = path.join(OUTPUT_DIR, `${safeType}_Brief.docx`);
+
+    fs.writeFileSync(mdFilePath, briefContent);
+    await convertToDocx(mdFilePath, docxFilePath);
+    await sendEmail(docxFilePath, company, type);
+
+    fs.unlinkSync(mdFilePath);
+    fs.unlinkSync(docxFilePath);
+
+
+
+    res.status(200).send('File processed and email sent.');
+  }
+
+  catch (error) {
+    console.error(error);
+    res.status(500).send('Internal Server Error');
+  }
+  // #endregion
+});
+
 
 // #region Prompt Handling
 
@@ -51,6 +90,8 @@ function promptManager(id) {
   return cfg;
 }
 // #endregion
+
+// #region Helper Functions
 
 function numCoupons(data) {
   let counter = 0;
@@ -102,40 +143,10 @@ function numCoupons(data) {
   return String(counter);
 }
 
-
-app.post("/ss", async (req, res) => {
-  // #region Receive JSON from Survey Sparrow
-  try {
-    console.log("Received JSON from Survey Sparrow");
-    const data = req.body
-    const company = data.companyName || data.practiceName
-    data.totalCoupons = numCoupons(data)
-    const { type, promptId } = promptManager(data.survey_id)
-    console.log(promptId)
-    const safeType = type.replace(/\s+/g, "_");
-    const briefContent = await generateBrief(data, promptId, type);
-
-    const mdFilePath = path.join(OUTPUT_DIR, `${safeType}_Brief.md`);
-    const docxFilePath = path.join(OUTPUT_DIR, `${safeType}_Brief.docx`);
-
-    fs.writeFileSync(mdFilePath, briefContent);
-    await convertToDocx(mdFilePath, docxFilePath);
-    await sendEmail(docxFilePath, company, type);
-
-    fs.unlinkSync(mdFilePath);
-    fs.unlinkSync(docxFilePath);
+// #endregion
 
 
-
-    res.status(200).send('File processed and email sent.');
-  }
-
-  catch (error) {
-    console.error(error);
-    res.status(500).send('Internal Server Error');
-  }
-  // #endregion
-});
+// #region Main Functions
 
 async function generateBrief(data, promptId, type) {
   // #region Generate Brief Content
@@ -201,6 +212,8 @@ async function sendEmail(attachmentPath, company, type) {
   await transporter.sendMail(mailOptions);
   // #endregion
 }
+
+// #endregion
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)
